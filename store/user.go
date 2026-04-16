@@ -2,6 +2,7 @@ package store
 
 import (
 	"database/sql"
+	"taskmanager/apperror"
 	"taskmanager/model"
 )
 
@@ -19,7 +20,11 @@ func (s *UserStore) Create(name, email string) (*model.User, error) {
 		name, email,
 	)
 	if err != nil {
-		return nil, err
+		return nil, &apperror.ConflictError{
+			Entity: "user",
+			Field:  "email",
+			Value:  email,
+		}
 	}
 
 	id, _ := result.LastInsertId()

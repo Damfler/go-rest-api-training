@@ -4,15 +4,24 @@ import (
 	"encoding/json"
 	"net/http"
 	"taskmanager/model"
-	"taskmanager/store"
 )
 
-type ProjectHandler struct {
-	Store     *store.ProjectStore
-	UserStore *store.UserStore
+type UserGetter interface {
+	GetByID(id int) (*model.User, error)
 }
 
-func NewProjectHandler(s *store.ProjectStore, us *store.UserStore) *ProjectHandler {
+type ProjectStore interface {
+	Create(name, description string, ownerID int) (*model.Project, error)
+	GetAll() ([]model.Project, error)
+	GetByID(id int) (*model.Project, error)
+}
+
+type ProjectHandler struct {
+	Store     ProjectStore
+	UserStore UserGetter
+}
+
+func NewProjectHandler(s ProjectStore, us UserGetter) *ProjectHandler {
 	return &ProjectHandler{Store: s, UserStore: us}
 }
 

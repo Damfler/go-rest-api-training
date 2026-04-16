@@ -4,15 +4,23 @@ import (
 	"encoding/json"
 	"net/http"
 	"strconv"
+	"taskmanager/apperror"
 	"taskmanager/model"
-	"taskmanager/store"
 )
 
-type TaskHandler struct {
-	Store *store.TaskStore
+type TaskStore interface {
+	Create(title string, projectID int, userID *int) (*model.Task, error)
+	GetByProject(projectID int, status string) ([]model.Task, error)
+	GetByUser(userID int, status string) ([]model.Task, error)
+	UpdateStatus(id int, status string) error
+	Delete(id int) error
 }
 
-func NewTaskHandler(s *store.TaskStore) *TaskHandler {
+type TaskHandler struct {
+	Store TaskStore
+}
+
+func NewTaskHandler(s TaskStore) *TaskHandler {
 	return &TaskHandler{Store: s}
 }
 
@@ -92,7 +100,7 @@ func (h *TaskHandler) UpdateStatus(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := h.Store.UpdateStatus(id, req.Status); err != nil {
-		errorResponse(w, http.StatusBadRequest, err.Error())
+		errorResponse(w, apperror.HTTPStatus(err), err.Error())
 		return
 	}
 
@@ -107,7 +115,7 @@ func (h *TaskHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := h.Store.Delete(id); err != nil {
-		errorResponse(w, http.StatusNotFound, err.Error())
+		errorResponse(w, apperror.HTTPStatus(err), err.Error())
 		return
 	}
 

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
@@ -521,5 +522,103 @@ func TestDeleteTask(t *testing.T) {
 
 	if w.Code != http.StatusNotFound {
 		t.Errorf("second delete status = %d, want 404", w.Code)
+	}
+}
+
+/* Mock */
+type mockTaskStore struct {
+	tasks []model.Task
+	err   error
+}
+
+func (m *mockTaskStore) Create(title string, projectID int, userID *int) (*model.Task, error) {
+	if m.err != nil {
+		return nil, m.err
+	}
+	task := &model.Task{
+		ID:        len(m.tasks) + 1,
+		Title:     title,
+		ProjectID: projectID,
+		UserID:    userID,
+		Status:    "todo",
+	}
+	m.tasks = append(m.tasks, *task)
+	return task, nil
+}
+
+func (m *mockTaskStore) GetByProject(projectID int, status string) ([]model.Task, error) {
+	if m.err != nil {
+		return nil, m.err
+	}
+	var result []model.Task
+	for _, t := range m.tasks {
+		if t.ProjectID == projectID {
+			result = append(result, t)
+		}
+	}
+	return result, nil
+}
+
+func (m *mockTaskStore) GetByUser(userID int, status string) ([]model.Task, error) {
+	return nil, nil
+}
+
+func (m *mockTaskStore) UpdateStatus(id int, status string) error {
+	return m.err
+}
+
+func (m *mockTaskStore) Delete(id int) error {
+	return m.err
+}
+
+func TestCreateTaskHandler(t *testing.T) {
+	mock := &mockTaskStore{}
+	h := &TaskHandler{Store: mock}
+
+	body := bytes.NewReader([]byte(`{"title":"Test","project_id":1}`))
+	req := httptest.NewRequest("POST", "/tasks", body)
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+
+	h.Create(w, req)
+
+	if w.Code != http.StatusCreated {
+		t.Errorf("status = %d, want 201", w.Code)
+	}
+
+	// Проверяем что мок получил данные
+	if len(mock.tasks) != 1 {
+		t.Errorf("got %d tasks in store, want 1", len(mock.tasks))
+	}
+}
+
+func TestCreateTaskDBError(t *testing.T) {
+	mock := &mockTaskStore{err: fmt.Errorf("database is down")}
+	h := &TaskHandler{Store: mock}
+
+	body := bytes.NewReader([]byte(`{"title":"Test","project_id":1}`))
+	req := httptest.NewRequest("POST", "/tasks", body)
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+
+	h.Create(w, req)
+
+	if w.Code != http.StatusInternalServerError {
+		t.Errorf("status = %d, want 500", w.Code)
+	}
+}
+
+func TestRemoveTaskDBError(t *testing.T) {
+	mock := &mockTaskStore{err: fmt.Errorf("task 999 not found")}
+	h := &TaskHandler{Store: mock}
+
+	req := httptest.NewRequest("DELETE", "/tasks/999", nil)
+	req.SetPathValue("id", "999")
+	w := httptest.NewRecorder()
+
+	h.Delete(w, req)
+
+	if w.Code != http.StatusNotFound {
+		t.Errorf("status = %d, want 404", w.Code)
 	}
 }

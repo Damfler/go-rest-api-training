@@ -3,6 +3,7 @@ package store
 import (
 	"database/sql"
 	"fmt"
+	"taskmanager/apperror"
 	"taskmanager/model"
 )
 
@@ -86,7 +87,7 @@ func (s *TaskStore) UpdateStatus(id int, status string) error {
 
 	rows, _ := result.RowsAffected()
 	if rows == 0 {
-		return fmt.Errorf("task %d not found", id)
+		return &apperror.NotFoundError{Entity: "task", ID: id}
 	}
 
 	return nil
@@ -100,7 +101,7 @@ func (s *TaskStore) Assign(taskID int, userID *int) error {
 
 	rows, _ := result.RowsAffected()
 	if rows == 0 {
-		return fmt.Errorf("task %d not found", taskID)
+		return &apperror.NotFoundError{Entity: "task", ID: taskID}
 	}
 
 	return nil
@@ -109,12 +110,12 @@ func (s *TaskStore) Assign(taskID int, userID *int) error {
 func (s *TaskStore) Delete(id int) error {
 	result, err := s.DB.Exec("DELETE FROM tasks WHERE id = ?", id)
 	if err != nil {
-		return err
+		return fmt.Errorf("TaskStore.Delete(%d): %w", id, err)
 	}
 
 	rows, _ := result.RowsAffected()
 	if rows == 0 {
-		return fmt.Errorf("task %d not found", id)
+		return &apperror.NotFoundError{Entity: "task", ID: id}
 	}
 
 	return nil

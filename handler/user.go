@@ -5,14 +5,19 @@ import (
 	"net/http"
 	"strings"
 	"taskmanager/model"
-	"taskmanager/store"
 )
 
-type UserHandler struct {
-	Store *store.UserStore
+type UserStore interface {
+	Create(name, email string) (*model.User, error)
+	GetAll() ([]model.User, error)
+	GetByID(id int) (*model.User, error)
 }
 
-func NewUserHandler(s *store.UserStore) *UserHandler {
+type UserHandler struct {
+	Store UserStore
+}
+
+func NewUserHandler(s UserStore) *UserHandler {
 	return &UserHandler{Store: s}
 }
 
