@@ -2,7 +2,9 @@ package handler
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
+	"taskmanager/apperror"
 	"taskmanager/model"
 )
 
@@ -32,23 +34,20 @@ func (h *ProjectHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if req.Name == "" {
-		errorResponse(w, http.StatusBadRequest, "Name is required")
+	if err := validateCreateProject(req); err != nil {
+		errorResponse(w, apperror.HTTPStatus(err), err.Error())
 		return
 	}
-	if req.OwnerID == 0 {
-		errorResponse(w, http.StatusBadRequest, "Owner id is required")
-		return
-	}
+
 	_, err := h.UserStore.GetByID(req.OwnerID)
 	if err != nil {
-		errorResponse(w, http.StatusBadRequest, "Owner not found")
+		errorResponse(w, apperror.HTTPStatus(err), "Owner not found")
 		return
 	}
 
 	task, err := h.Store.Create(req.Name, req.Description, req.OwnerID)
 	if err != nil {
-		errorResponse(w, http.StatusInternalServerError, err.Error())
+		errorResponse(w, apperror.HTTPStatus(err), err.Error())
 		return
 	}
 
@@ -58,9 +57,26 @@ func (h *ProjectHandler) Create(w http.ResponseWriter, r *http.Request) {
 func (h *ProjectHandler) GetAll(w http.ResponseWriter, r *http.Request) {
 	projects, err := h.Store.GetAll()
 	if err != nil {
-		errorResponse(w, http.StatusInternalServerError, err.Error())
+		errorResponse(w, apperror.HTTPStatus(err), err.Error())
 		return
 	}
 
 	jsonResponse(w, http.StatusOK, projects)
+}
+
+func validateCreateProject(req model.CreateProjectRequest) error {
+	var errs []error
+
+	if req.Name == "" {
+		errs = append(errs, &apperror.ValidationError{
+			Field: "name", Message: "required",
+		})
+	}
+	if req.OwnerID == 0 {
+		errs = append(errs, &apperror.ValidationError{
+			Field: "owner_id", Message: "required",
+		})
+	}
+
+	return errors.Join(errs...)
 }

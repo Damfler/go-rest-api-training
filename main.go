@@ -17,8 +17,9 @@ func main() {
 	}
 	defer db.Close()
 
-	userHandler := handler.NewUserHandler(store.NewUserStore(db))
-	projectHandler := handler.NewProjectHandler(store.NewProjectStore(db), store.NewUserStore(db))
+	userStore := store.NewUserStore(db)
+	userHandler := handler.NewUserHandler(userStore)
+	projectHandler := handler.NewProjectHandler(store.NewProjectStore(db), userStore)
 	taskHandler := handler.NewTaskHandler(store.NewTaskStore(db))
 
 	mux := http.NewServeMux()

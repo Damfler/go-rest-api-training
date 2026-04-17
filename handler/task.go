@@ -2,6 +2,7 @@ package handler
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strconv"
 	"taskmanager/apperror"
@@ -31,19 +32,14 @@ func (h *TaskHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if req.Title == "" {
-		errorResponse(w, http.StatusBadRequest, "Title is required")
-		return
-	}
-
-	if req.ProjectID == 0 {
-		errorResponse(w, http.StatusBadRequest, "Project id is required")
+	if err := validateCreateTask(req); err != nil {
+		errorResponse(w, apperror.HTTPStatus(err), err.Error())
 		return
 	}
 
 	task, err := h.Store.Create(req.Title, req.ProjectID, req.UserID)
 	if err != nil {
-		errorResponse(w, http.StatusInternalServerError, err.Error())
+		errorResponse(w, apperror.HTTPStatus(err), err.Error())
 		return
 	}
 
@@ -61,7 +57,7 @@ func (h *TaskHandler) GetByProject(w http.ResponseWriter, r *http.Request) {
 
 	tasks, err := h.Store.GetByProject(projectID, status)
 	if err != nil {
-		errorResponse(w, http.StatusInternalServerError, err.Error())
+		errorResponse(w, apperror.HTTPStatus(err), err.Error())
 		return
 	}
 
@@ -79,7 +75,7 @@ func (h *TaskHandler) GetByUser(w http.ResponseWriter, r *http.Request) {
 
 	tasks, err := h.Store.GetByUser(userID, status)
 	if err != nil {
-		errorResponse(w, http.StatusInternalServerError, err.Error())
+		errorResponse(w, apperror.HTTPStatus(err), err.Error())
 		return
 	}
 
@@ -120,4 +116,21 @@ func (h *TaskHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	}
 
 	jsonResponse(w, http.StatusOK, map[string]string{"status": "deleted"})
+}
+
+func validateCreateTask(req model.CreateTaskRequest) error {
+	var errs []error
+
+	if req.Title == "" {
+		errs = append(errs, &apperror.ValidationError{
+			Field: "title", Message: "required",
+		})
+	}
+	if req.ProjectID == 0 {
+		errs = append(errs, &apperror.ValidationError{
+			Field: "project_id", Message: "required",
+		})
+	}
+
+	return errors.Join(errs...)
 }

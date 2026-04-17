@@ -2,6 +2,9 @@ package store
 
 import (
 	"database/sql"
+	"errors"
+	"fmt"
+	"taskmanager/apperror"
 	"taskmanager/model"
 )
 
@@ -19,7 +22,7 @@ func (s *ProjectStore) Create(name, description string, ownerId int) (*model.Pro
 		name, description, ownerId,
 	)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("ProjectStore.Create(%s,%s,%d): %w", name, description, ownerId, err)
 	}
 
 	id, _ := result.LastInsertId()
@@ -29,7 +32,7 @@ func (s *ProjectStore) Create(name, description string, ownerId int) (*model.Pro
 func (s *ProjectStore) GetAll() ([]model.Project, error) {
 	rows, err := s.DB.Query("SELECT id, name, description, owner_id FROM projects")
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("ProjectStore.GetAll: %w", err)
 	}
 	defer rows.Close()
 
@@ -38,7 +41,7 @@ func (s *ProjectStore) GetAll() ([]model.Project, error) {
 		var p model.Project
 		err := rows.Scan(&p.ID, &p.Name, &p.Description, &p.OwnerID)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("ProjectStore.GetAll scan: %w", err)
 		}
 		projects = append(projects, p)
 	}
@@ -49,8 +52,11 @@ func (s *ProjectStore) GetAll() ([]model.Project, error) {
 func (s *ProjectStore) GetByID(id int) (*model.Project, error) {
 	var p model.Project
 	err := s.DB.QueryRow("SELECT id, name, description, owner_id FROM projects WHERE id = ?", id).Scan(&p.ID, &p.Name, &p.Description, &p.OwnerID)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, &apperror.NotFoundError{Entity: "project", ID: id}
+	}
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("ProjectStore.GetByID(%d): %w", id, err)
 	}
 	return &p, nil
 }

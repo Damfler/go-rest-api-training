@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strconv"
+	"taskmanager/apperror"
 	"taskmanager/model"
 	"taskmanager/store"
 	"testing"
@@ -609,7 +610,7 @@ func TestCreateTaskDBError(t *testing.T) {
 }
 
 func TestRemoveTaskDBError(t *testing.T) {
-	mock := &mockTaskStore{err: fmt.Errorf("task 999 not found")}
+	mock := &mockTaskStore{err: &apperror.NotFoundError{Entity: "task", ID: 999}}
 	h := &TaskHandler{Store: mock}
 
 	req := httptest.NewRequest("DELETE", "/tasks/999", nil)
@@ -620,5 +621,77 @@ func TestRemoveTaskDBError(t *testing.T) {
 
 	if w.Code != http.StatusNotFound {
 		t.Errorf("status = %d, want 404", w.Code)
+	}
+}
+
+type mockUserStore struct {
+	users []model.User
+	err   error
+}
+
+func (m *mockUserStore) Create(name, email string) (*model.User, error) {
+	if m.err != nil {
+		return nil, m.err
+	}
+
+	for _, u := range m.users {
+		if u.Email == email {
+			return nil, &apperror.ConflictError{
+				Entity: "user", Field: "email", Value: email,
+			}
+		}
+	}
+
+	user := &model.User{
+		ID:    len(m.users) + 1,
+		Name:  name,
+		Email: email,
+	}
+	m.users = append(m.users, *user)
+	return user, nil
+}
+
+func (s *mockUserStore) GetAll() ([]model.User, error) {
+	return nil, nil
+}
+
+func (s *mockUserStore) GetByID(id int) (*model.User, error) {
+	return nil, nil
+}
+
+func TestCreateDoubleUsersHandler(t *testing.T) {
+	mock := &mockUserStore{}
+	h := &UserHandler{Store: mock}
+
+	tests := []struct {
+		name           string
+		body           string
+		expectedStatus int
+	}{
+		{
+			name:           "success",
+			body:           `{"name":"Test","email":"test@example.com"}`,
+			expectedStatus: http.StatusCreated,
+		},
+		{
+			name:           "double email",
+			body:           `{"name":"Test","email":"test@example.com"}`,
+			expectedStatus: http.StatusConflict,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			body := bytes.NewReader([]byte(tt.body))
+			req := httptest.NewRequest("POST", "/users", body)
+			req.Header.Set("Content-Type", "application/json")
+			w := httptest.NewRecorder()
+
+			h.Create(w, req)
+
+			if w.Code != tt.expectedStatus {
+				t.Errorf("status = %d, want %d", w.Code, tt.expectedStatus)
+			}
+		})
 	}
 }

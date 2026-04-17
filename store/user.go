@@ -2,6 +2,9 @@ package store
 
 import (
 	"database/sql"
+	"errors"
+	"fmt"
+	"strings"
 	"taskmanager/apperror"
 	"taskmanager/model"
 )
@@ -20,11 +23,12 @@ func (s *UserStore) Create(name, email string) (*model.User, error) {
 		name, email,
 	)
 	if err != nil {
-		return nil, &apperror.ConflictError{
-			Entity: "user",
-			Field:  "email",
-			Value:  email,
+		if strings.Contains(err.Error(), "UNIQUE") {
+			return nil, &apperror.ConflictError{
+				Entity: "user", Field: "email", Value: email,
+			}
 		}
+		return nil, fmt.Errorf("UserStore.Create(%s,%s): %w", name, email, err)
 	}
 
 	id, _ := result.LastInsertId()
@@ -34,7 +38,7 @@ func (s *UserStore) Create(name, email string) (*model.User, error) {
 func (s *UserStore) GetAll() ([]model.User, error) {
 	rows, err := s.DB.Query("SELECT id, name, email FROM users")
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("UserStore.GetAll: %w", err)
 	}
 	defer rows.Close()
 
@@ -43,7 +47,7 @@ func (s *UserStore) GetAll() ([]model.User, error) {
 		var u model.User
 		err := rows.Scan(&u.ID, &u.Name, &u.Email)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("UserStore.GetAll scan: %w", err)
 		}
 		users = append(users, u)
 	}
@@ -53,11 +57,13 @@ func (s *UserStore) GetAll() ([]model.User, error) {
 
 func (s *UserStore) GetByID(id int) (*model.User, error) {
 	var u model.User
-	err := s.DB.QueryRow(
-		"SELECT id, name, email FROM users WHERE id = ?", id,
-	).Scan(&u.ID, &u.Name, &u.Email)
-	if err != nil {
-		return nil, err
+	err := s.DB.QueryRow("SELECT id, name, email FROM users WHERE id = ?", id).Scan(&u.ID, &u.Name, &u.Email)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, &apperror.NotFoundError{Entity: "user", ID: id}
 	}
+	if err != nil {
+		return nil, fmt.Errorf("UserStore.GetByID(%d): %w", id, err)
+	}
+
 	return &u, nil
 }

@@ -23,7 +23,7 @@ func (s *TaskStore) Create(title string, projectID int, userID *int) (*model.Tas
 		title, projectID, userID,
 	)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("TaskStore.Create(%s,%d,%d): %w", title, projectID, userID, err)
 	}
 
 	id, _ := result.LastInsertId()
@@ -42,7 +42,7 @@ func (s *TaskStore) getTasksWhere(column string, value int, status string) ([]mo
 
 	if status != "" {
 		if !validStatus[status] {
-			return nil, fmt.Errorf("invalid status: %s", status)
+			return nil, &apperror.ValidationError{Field: "status", Message: "must be todo, in_progress or done"}
 		}
 		query += " AND status = ?"
 		args = append(args, status)
@@ -50,7 +50,7 @@ func (s *TaskStore) getTasksWhere(column string, value int, status string) ([]mo
 
 	rows, err := s.DB.Query(query, args...)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("TaskStore.getTasksWhere(%s,%d,%s): %w", column, value, status, err)
 	}
 	defer rows.Close()
 
@@ -59,7 +59,7 @@ func (s *TaskStore) getTasksWhere(column string, value int, status string) ([]mo
 		var t model.Task
 		err := rows.Scan(&t.ID, &t.Title, &t.Status, &t.ProjectID, &t.UserID)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("TaskStore.getTasksWhere scan: %w", err)
 		}
 		tasks = append(tasks, t)
 	}
@@ -77,12 +77,12 @@ func (s *TaskStore) GetByUser(userID int, status string) ([]model.Task, error) {
 
 func (s *TaskStore) UpdateStatus(id int, status string) error {
 	if !validStatus[status] {
-		return fmt.Errorf("invalid status: %s", status)
+		return &apperror.ValidationError{Field: "status", Message: "must be todo, in_progress or done"}
 	}
 
 	result, err := s.DB.Exec("UPDATE tasks SET status = ? WHERE id = ?", status, id)
 	if err != nil {
-		return err
+		return fmt.Errorf("TaskStore.UpdateStatus(%s,%d): %w", status, id, err)
 	}
 
 	rows, _ := result.RowsAffected()
@@ -96,7 +96,7 @@ func (s *TaskStore) UpdateStatus(id int, status string) error {
 func (s *TaskStore) Assign(taskID int, userID *int) error {
 	result, err := s.DB.Exec("UPDATE tasks SET user_id = ? WHERE id = ?", userID, taskID)
 	if err != nil {
-		return err
+		return fmt.Errorf("TaskStore.Assign(%d,%d): %w", taskID, userID, err)
 	}
 
 	rows, _ := result.RowsAffected()
