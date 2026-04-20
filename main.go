@@ -3,6 +3,8 @@ package main
 import (
 	"fmt"
 	"net/http"
+	"os"
+	"taskmanager/config"
 	"taskmanager/handler"
 	"taskmanager/middleware"
 	"taskmanager/store"
@@ -11,7 +13,18 @@ import (
 )
 
 func main() {
-	db, err := store.InitDB("app.db")
+	configPath := "config.yaml"
+	if len(os.Args) > 1 {
+		configPath = os.Args[1]
+	}
+
+	cfg, err := config.Load(configPath)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	db, err := store.InitDB(cfg.Database.Path)
 	if err != nil {
 		panic(err)
 	}
@@ -39,6 +52,8 @@ func main() {
 	mux.HandleFunc("PATCH /tasks/{id}", middleware.Logging(taskHandler.UpdateStatus))
 	mux.HandleFunc("DELETE /tasks/{id}", middleware.Logging(taskHandler.Delete))
 
-	fmt.Println("Server started on :8080")
-	http.ListenAndServe(":8080", mux)
+	addr := fmt.Sprintf("%s:%d", cfg.Server.Host, cfg.Server.Port)
+	fmt.Printf("Server started on %s\n", addr)
+	_ = http.ListenAndServe(addr, mux)
+	return
 }
