@@ -1,0 +1,8 @@
+server:
+  host: localhost
+  port: 8081
+
+database:
+  path: app.db
+
+debug: false

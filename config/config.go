@@ -3,6 +3,7 @@ package config
 import (
 	"encoding/json"
 	"encoding/xml"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -29,7 +30,7 @@ func Load(path string) (*Config, error) {
 	config := &Config{
 		Server: ServerConfig{
 			Host: "localhost",
-			Port: 8080,
+			Port: 999,
 		},
 		Database: DatabaseConfig{
 			Path: "./app.db",
@@ -57,5 +58,29 @@ func Load(path string) (*Config, error) {
 		return nil, fmt.Errorf("unmarshal %s: %w", path, err)
 	}
 
+	config.loadEnv()
+
+	if err := config.validate(); err != nil {
+		return nil, fmt.Errorf("validate config: %w", err)
+	}
+
 	return config, nil
+}
+
+func (c *Config) validate() error {
+	var errs []error
+
+	if c.Server.Port < 1 || c.Server.Port > 65535 {
+		errs = append(errs, fmt.Errorf("server.port must be 1-65535, got %d", c.Server.Port))
+	}
+
+	if c.Server.Host == "" {
+		errs = append(errs, fmt.Errorf("server.host is required"))
+	}
+
+	if c.Database.Path == "" {
+		errs = append(errs, fmt.Errorf("database.path is required"))
+	}
+
+	return errors.Join(errs...)
 }

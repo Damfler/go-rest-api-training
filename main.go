@@ -36,21 +36,22 @@ func main() {
 	taskHandler := handler.NewTaskHandler(store.NewTaskStore(db))
 
 	mux := http.NewServeMux()
+	log := middleware.Logging(cfg.Debug)
 
 	// Users
-	mux.HandleFunc("GET /users", middleware.Logging(userHandler.GetAll))
-	mux.HandleFunc("POST /users", middleware.Logging(userHandler.Create))
+	mux.HandleFunc("GET /users", log(userHandler.GetAll))
+	mux.HandleFunc("POST /users", log(userHandler.Create))
 
 	// Projects
-	mux.HandleFunc("GET /projects", middleware.Logging(projectHandler.GetAll))
-	mux.HandleFunc("POST /projects", middleware.Logging(projectHandler.Create))
+	mux.HandleFunc("GET /projects", log(projectHandler.GetAll))
+	mux.HandleFunc("POST /projects", log(projectHandler.Create))
 
 	// Tasks
-	mux.HandleFunc("GET /users/{userId}/tasks", middleware.Logging(taskHandler.GetByUser))
-	mux.HandleFunc("GET /projects/{projectId}/tasks", middleware.Logging(taskHandler.GetByProject))
-	mux.HandleFunc("POST /tasks", middleware.Logging(taskHandler.Create))
-	mux.HandleFunc("PATCH /tasks/{id}", middleware.Logging(taskHandler.UpdateStatus))
-	mux.HandleFunc("DELETE /tasks/{id}", middleware.Logging(taskHandler.Delete))
+	mux.HandleFunc("GET /users/{userId}/tasks", log(taskHandler.GetByUser))
+	mux.HandleFunc("GET /projects/{projectId}/tasks", log(taskHandler.GetByProject))
+	mux.HandleFunc("POST /tasks", log(taskHandler.Create))
+	mux.HandleFunc("PATCH /tasks/{id}", log(taskHandler.UpdateStatus))
+	mux.HandleFunc("DELETE /tasks/{id}", log(taskHandler.Delete))
 
 	addr := fmt.Sprintf("%s:%d", cfg.Server.Host, cfg.Server.Port)
 	fmt.Printf("Server started on %s\n", addr)
