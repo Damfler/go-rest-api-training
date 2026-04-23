@@ -10,7 +10,7 @@ import (
 )
 
 type UserGetter interface {
-	GetByID(id int) (*model.User, error)
+	GetByID(ctx context.Context, id int) (*model.User, error)
 }
 
 type ProjectStore interface {
@@ -42,7 +42,7 @@ func (h *ProjectHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, err := h.UserStore.GetByID(req.OwnerID)
+	_, err := h.UserStore.GetByID(ctx, req.OwnerID)
 	if err != nil {
 		errorResponse(w, apperror.HTTPStatus(err), "Owner not found")
 		return
