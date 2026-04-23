@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -10,11 +11,11 @@ import (
 )
 
 type TaskStore interface {
-	Create(title string, projectID int, userID *int) (*model.Task, error)
-	GetByProject(projectID int, status string) ([]model.Task, error)
-	GetByUser(userID int, status string) ([]model.Task, error)
-	UpdateStatus(id int, status string) error
-	Delete(id int) error
+	Create(ctx context.Context, title string, projectID int, userID *int) (*model.Task, error)
+	GetByProject(ctx context.Context, projectID int, status string) ([]model.Task, error)
+	GetByUser(ctx context.Context, userID int, status string) ([]model.Task, error)
+	UpdateStatus(ctx context.Context, id int, status string) error
+	Delete(ctx context.Context, id int) error
 }
 
 type TaskHandler struct {
@@ -26,6 +27,8 @@ func NewTaskHandler(s TaskStore) *TaskHandler {
 }
 
 func (h *TaskHandler) Create(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
 	var req model.CreateTaskRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		errorResponse(w, http.StatusBadRequest, "Invalid JSON")
@@ -37,7 +40,7 @@ func (h *TaskHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	task, err := h.Store.Create(req.Title, req.ProjectID, req.UserID)
+	task, err := h.Store.Create(ctx, req.Title, req.ProjectID, req.UserID)
 	if err != nil {
 		errorResponse(w, apperror.HTTPStatus(err), err.Error())
 		return
@@ -47,6 +50,8 @@ func (h *TaskHandler) Create(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *TaskHandler) GetByProject(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
 	projectID, err := strconv.Atoi(r.PathValue("projectId"))
 	if err != nil {
 		errorResponse(w, http.StatusBadRequest, "Invalid project ID")
@@ -55,7 +60,7 @@ func (h *TaskHandler) GetByProject(w http.ResponseWriter, r *http.Request) {
 
 	status := r.URL.Query().Get("status")
 
-	tasks, err := h.Store.GetByProject(projectID, status)
+	tasks, err := h.Store.GetByProject(ctx, projectID, status)
 	if err != nil {
 		errorResponse(w, apperror.HTTPStatus(err), err.Error())
 		return
@@ -65,6 +70,8 @@ func (h *TaskHandler) GetByProject(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *TaskHandler) GetByUser(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
 	userID, err := strconv.Atoi(r.PathValue("userId"))
 	if err != nil {
 		errorResponse(w, http.StatusBadRequest, "Invalid user ID")
@@ -73,7 +80,7 @@ func (h *TaskHandler) GetByUser(w http.ResponseWriter, r *http.Request) {
 
 	status := r.URL.Query().Get("status")
 
-	tasks, err := h.Store.GetByUser(userID, status)
+	tasks, err := h.Store.GetByUser(ctx, userID, status)
 	if err != nil {
 		errorResponse(w, apperror.HTTPStatus(err), err.Error())
 		return
@@ -83,6 +90,8 @@ func (h *TaskHandler) GetByUser(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *TaskHandler) UpdateStatus(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
 	id, err := strconv.Atoi(r.PathValue("id"))
 	if err != nil {
 		errorResponse(w, http.StatusBadRequest, "Invalid ID")
@@ -95,7 +104,7 @@ func (h *TaskHandler) UpdateStatus(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.Store.UpdateStatus(id, req.Status); err != nil {
+	if err := h.Store.UpdateStatus(ctx, id, req.Status); err != nil {
 		errorResponse(w, apperror.HTTPStatus(err), err.Error())
 		return
 	}
@@ -104,13 +113,15 @@ func (h *TaskHandler) UpdateStatus(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *TaskHandler) Delete(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
 	id, err := strconv.Atoi(r.PathValue("id"))
 	if err != nil {
 		errorResponse(w, http.StatusBadRequest, "Invalid ID")
 		return
 	}
 
-	if err := h.Store.Delete(id); err != nil {
+	if err := h.Store.Delete(ctx, id); err != nil {
 		errorResponse(w, apperror.HTTPStatus(err), err.Error())
 		return
 	}

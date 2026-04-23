@@ -2,6 +2,7 @@ package handler
 
 import (
 	"bytes"
+	"context"
 	"database/sql"
 	"encoding/json"
 	"fmt"
@@ -179,7 +180,7 @@ func TestGetAllUsers(t *testing.T) {
 func TestCreateProject(t *testing.T) {
 	env := setupTestEnv(t)
 
-	user, err := env.UserStore.Create("Alex", "alex@mail.com")
+	user, err := env.UserStore.Create(t.Context(), "Alex", "alex@mail.com")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -246,7 +247,7 @@ func TestCreateProject(t *testing.T) {
 func TestGetAllProjects(t *testing.T) {
 	env := setupTestEnv(t)
 
-	user, _ := env.UserStore.Create("Alex", "alex@mail.com")
+	user, _ := env.UserStore.Create(t.Context(), "Alex", "alex@mail.com")
 
 	projects := []string{
 		`{"name":"Rest","description":"","owner_id":` + strconv.Itoa(user.ID) + `}`,
@@ -281,8 +282,8 @@ func TestTaskProject(t *testing.T) {
 	env := setupTestEnv(t)
 
 	// Подготовка — реальный пользователь и проект
-	user, _ := env.UserStore.Create("Alex", "alex@mail.com")
-	project, _ := env.ProjectStore.Create("Project 1", "desc", user.ID)
+	user, _ := env.UserStore.Create(t.Context(), "Alex", "alex@mail.com")
+	project, _ := env.ProjectStore.Create(t.Context(), "Project 1", "desc", user.ID)
 
 	tests := []struct {
 		name           string
@@ -347,14 +348,14 @@ func TestTaskGetByProject(t *testing.T) {
 	taskStore := store.NewTaskStore(db)
 	taskHandler := NewTaskHandler(taskStore)
 
-	user, err := userStore.Create("test", "test@mail.com")
+	user, err := userStore.Create(t.Context(), "test", "test@mail.com")
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	var project1 model.Project
 	for i := 1; i <= 2; i++ {
-		project, err := projectStore.Create("Project "+strconv.Itoa(i), "desc", user.ID)
+		project, err := projectStore.Create(t.Context(), "Project "+strconv.Itoa(i), "desc", user.ID)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -362,7 +363,7 @@ func TestTaskGetByProject(t *testing.T) {
 			project1 = *project
 		}
 
-		taskStore.Create("Task "+strconv.Itoa(i), project.ID, nil)
+		taskStore.Create(t.Context(), "Task "+strconv.Itoa(i), project.ID, nil)
 	}
 
 	req := httptest.NewRequest("GET",
@@ -399,14 +400,14 @@ func TestTaskGetByProjectAndByUser(t *testing.T) {
 	taskStore := store.NewTaskStore(db)
 	taskHandler := NewTaskHandler(taskStore)
 
-	user, err := userStore.Create("test", "test@mail.com")
+	user, err := userStore.Create(t.Context(), "test", "test@mail.com")
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	var project1 model.Project
 	for i := 1; i <= 2; i++ {
-		project, err := projectStore.Create("Project "+strconv.Itoa(i), "desc", user.ID)
+		project, err := projectStore.Create(t.Context(), "Project "+strconv.Itoa(i), "desc", user.ID)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -414,7 +415,7 @@ func TestTaskGetByProjectAndByUser(t *testing.T) {
 			project1 = *project
 		}
 
-		taskStore.Create("Task "+strconv.Itoa(i), project.ID, &user.ID)
+		taskStore.Create(t.Context(), "Task "+strconv.Itoa(i), project.ID, &user.ID)
 	}
 
 	req := httptest.NewRequest("GET",
@@ -464,9 +465,9 @@ func TestTaskGetByProjectAndByUser(t *testing.T) {
 func TestUpdateStatus(t *testing.T) {
 	env := setupTestEnv(t)
 
-	user, _ := env.UserStore.Create("Alex", "alex@mail.com")
-	project, _ := env.ProjectStore.Create("Project", "desc", user.ID)
-	task, _ := env.TaskStore.Create("Fix bug", project.ID, nil)
+	user, _ := env.UserStore.Create(t.Context(), "Alex", "alex@mail.com")
+	project, _ := env.ProjectStore.Create(t.Context(), "Project", "desc", user.ID)
+	task, _ := env.TaskStore.Create(t.Context(), "Fix bug", project.ID, nil)
 
 	tests := []struct {
 		name           string
@@ -499,9 +500,9 @@ func TestUpdateStatus(t *testing.T) {
 func TestDeleteTask(t *testing.T) {
 	env := setupTestEnv(t)
 
-	user, _ := env.UserStore.Create("Alex", "alex@mail.com")
-	project, _ := env.ProjectStore.Create("Project", "desc", user.ID)
-	task, _ := env.TaskStore.Create("Delete me", project.ID, nil)
+	user, _ := env.UserStore.Create(t.Context(), "Alex", "alex@mail.com")
+	project, _ := env.ProjectStore.Create(t.Context(), "Project", "desc", user.ID)
+	task, _ := env.TaskStore.Create(t.Context(), "Delete me", project.ID, nil)
 
 	req := httptest.NewRequest("DELETE",
 		"/tasks/"+strconv.Itoa(task.ID), nil)
@@ -532,7 +533,7 @@ type mockTaskStore struct {
 	err   error
 }
 
-func (m *mockTaskStore) Create(title string, projectID int, userID *int) (*model.Task, error) {
+func (m *mockTaskStore) Create(ctx context.Context, title string, projectID int, userID *int) (*model.Task, error) {
 	if m.err != nil {
 		return nil, m.err
 	}
@@ -547,7 +548,7 @@ func (m *mockTaskStore) Create(title string, projectID int, userID *int) (*model
 	return task, nil
 }
 
-func (m *mockTaskStore) GetByProject(projectID int, status string) ([]model.Task, error) {
+func (m *mockTaskStore) GetByProject(ctx context.Context, projectID int, status string) ([]model.Task, error) {
 	if m.err != nil {
 		return nil, m.err
 	}
@@ -560,15 +561,15 @@ func (m *mockTaskStore) GetByProject(projectID int, status string) ([]model.Task
 	return result, nil
 }
 
-func (m *mockTaskStore) GetByUser(userID int, status string) ([]model.Task, error) {
+func (m *mockTaskStore) GetByUser(ctx context.Context, userID int, status string) ([]model.Task, error) {
 	return nil, nil
 }
 
-func (m *mockTaskStore) UpdateStatus(id int, status string) error {
+func (m *mockTaskStore) UpdateStatus(ctx context.Context, id int, status string) error {
 	return m.err
 }
 
-func (m *mockTaskStore) Delete(id int) error {
+func (m *mockTaskStore) Delete(ctx context.Context, id int) error {
 	return m.err
 }
 
@@ -629,7 +630,7 @@ type mockUserStore struct {
 	err   error
 }
 
-func (m *mockUserStore) Create(name, email string) (*model.User, error) {
+func (m *mockUserStore) Create(ctx context.Context, name, email string) (*model.User, error) {
 	if m.err != nil {
 		return nil, m.err
 	}
@@ -651,11 +652,11 @@ func (m *mockUserStore) Create(name, email string) (*model.User, error) {
 	return user, nil
 }
 
-func (s *mockUserStore) GetAll() ([]model.User, error) {
+func (s *mockUserStore) GetAll(ctx context.Context) ([]model.User, error) {
 	return nil, nil
 }
 
-func (s *mockUserStore) GetByID(id int) (*model.User, error) {
+func (s *mockUserStore) GetByID(ctx context.Context, id int) (*model.User, error) {
 	return nil, nil
 }
 

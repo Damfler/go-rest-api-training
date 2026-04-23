@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -13,9 +14,9 @@ type UserGetter interface {
 }
 
 type ProjectStore interface {
-	Create(name, description string, ownerID int) (*model.Project, error)
-	GetAll() ([]model.Project, error)
-	GetByID(id int) (*model.Project, error)
+	Create(ctx context.Context, name, description string, ownerID int) (*model.Project, error)
+	GetAll(ctx context.Context) ([]model.Project, error)
+	GetByID(ctx context.Context, id int) (*model.Project, error)
 }
 
 type ProjectHandler struct {
@@ -28,6 +29,8 @@ func NewProjectHandler(s ProjectStore, us UserGetter) *ProjectHandler {
 }
 
 func (h *ProjectHandler) Create(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
 	var req model.CreateProjectRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		errorResponse(w, http.StatusBadRequest, "Invalid JSON")
@@ -45,7 +48,7 @@ func (h *ProjectHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	task, err := h.Store.Create(req.Name, req.Description, req.OwnerID)
+	task, err := h.Store.Create(ctx, req.Name, req.Description, req.OwnerID)
 	if err != nil {
 		errorResponse(w, apperror.HTTPStatus(err), err.Error())
 		return
@@ -55,7 +58,9 @@ func (h *ProjectHandler) Create(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *ProjectHandler) GetAll(w http.ResponseWriter, r *http.Request) {
-	projects, err := h.Store.GetAll()
+	ctx := r.Context()
+
+	projects, err := h.Store.GetAll(ctx)
 	if err != nil {
 		errorResponse(w, apperror.HTTPStatus(err), err.Error())
 		return

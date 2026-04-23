@@ -1,6 +1,7 @@
 package store
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"fmt"
@@ -17,8 +18,8 @@ func NewUserStore(db *sql.DB) *UserStore {
 	return &UserStore{DB: db}
 }
 
-func (s *UserStore) Create(name, email string) (*model.User, error) {
-	result, err := s.DB.Exec(
+func (s *UserStore) Create(ctx context.Context, name, email string) (*model.User, error) {
+	result, err := s.DB.ExecContext(ctx,
 		"INSERT INTO users (name, email) VALUES (?, ?)",
 		name, email,
 	)
@@ -35,8 +36,8 @@ func (s *UserStore) Create(name, email string) (*model.User, error) {
 	return &model.User{ID: int(id), Name: name, Email: email}, nil
 }
 
-func (s *UserStore) GetAll() ([]model.User, error) {
-	rows, err := s.DB.Query("SELECT id, name, email FROM users")
+func (s *UserStore) GetAll(ctx context.Context) ([]model.User, error) {
+	rows, err := s.DB.QueryContext(ctx, "SELECT id, name, email FROM users")
 	if err != nil {
 		return nil, fmt.Errorf("UserStore.GetAll: %w", err)
 	}
@@ -55,9 +56,9 @@ func (s *UserStore) GetAll() ([]model.User, error) {
 	return users, nil
 }
 
-func (s *UserStore) GetByID(id int) (*model.User, error) {
+func (s *UserStore) GetByID(ctx context.Context, id int) (*model.User, error) {
 	var u model.User
-	err := s.DB.QueryRow("SELECT id, name, email FROM users WHERE id = ?", id).Scan(&u.ID, &u.Name, &u.Email)
+	err := s.DB.QueryRowContext(ctx, "SELECT id, name, email FROM users WHERE id = ?", id).Scan(&u.ID, &u.Name, &u.Email)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, &apperror.NotFoundError{Entity: "user", ID: id}
 	}

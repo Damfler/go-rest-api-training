@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -10,9 +11,9 @@ import (
 )
 
 type UserStore interface {
-	Create(name, email string) (*model.User, error)
-	GetAll() ([]model.User, error)
-	GetByID(id int) (*model.User, error)
+	Create(ctx context.Context, name, email string) (*model.User, error)
+	GetAll(ctx context.Context) ([]model.User, error)
+	GetByID(ctx context.Context, id int) (*model.User, error)
 }
 
 type UserHandler struct {
@@ -24,6 +25,8 @@ func NewUserHandler(s UserStore) *UserHandler {
 }
 
 func (h *UserHandler) Create(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
 	var req model.CreateUserRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		errorResponse(w, http.StatusBadRequest, "Invalid JSON")
@@ -35,7 +38,7 @@ func (h *UserHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	task, err := h.Store.Create(req.Name, req.Email)
+	task, err := h.Store.Create(ctx, req.Name, req.Email)
 	if err != nil {
 		errorResponse(w, apperror.HTTPStatus(err), err.Error())
 		return
@@ -45,7 +48,9 @@ func (h *UserHandler) Create(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *UserHandler) GetAll(w http.ResponseWriter, r *http.Request) {
-	users, err := h.Store.GetAll()
+	ctx := r.Context()
+
+	users, err := h.Store.GetAll(ctx)
 	if err != nil {
 		errorResponse(w, apperror.HTTPStatus(err), err.Error())
 		return

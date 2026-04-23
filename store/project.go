@@ -1,6 +1,7 @@
 package store
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"fmt"
@@ -16,8 +17,8 @@ func NewProjectStore(db *sql.DB) *ProjectStore {
 	return &ProjectStore{DB: db}
 }
 
-func (s *ProjectStore) Create(name, description string, ownerId int) (*model.Project, error) {
-	result, err := s.DB.Exec(
+func (s *ProjectStore) Create(ctx context.Context, name, description string, ownerId int) (*model.Project, error) {
+	result, err := s.DB.ExecContext(ctx,
 		"INSERT INTO projects (name, description, owner_id) VALUES (?, ?, ?)",
 		name, description, ownerId,
 	)
@@ -29,8 +30,8 @@ func (s *ProjectStore) Create(name, description string, ownerId int) (*model.Pro
 	return &model.Project{ID: int(id), Name: name, Description: description, OwnerID: ownerId}, nil
 }
 
-func (s *ProjectStore) GetAll() ([]model.Project, error) {
-	rows, err := s.DB.Query("SELECT id, name, description, owner_id FROM projects")
+func (s *ProjectStore) GetAll(ctx context.Context) ([]model.Project, error) {
+	rows, err := s.DB.QueryContext(ctx, "SELECT id, name, description, owner_id FROM projects")
 	if err != nil {
 		return nil, fmt.Errorf("ProjectStore.GetAll: %w", err)
 	}
@@ -49,9 +50,9 @@ func (s *ProjectStore) GetAll() ([]model.Project, error) {
 	return projects, nil
 }
 
-func (s *ProjectStore) GetByID(id int) (*model.Project, error) {
+func (s *ProjectStore) GetByID(ctx context.Context, id int) (*model.Project, error) {
 	var p model.Project
-	err := s.DB.QueryRow("SELECT id, name, description, owner_id FROM projects WHERE id = ?", id).Scan(&p.ID, &p.Name, &p.Description, &p.OwnerID)
+	err := s.DB.QueryRowContext(ctx, "SELECT id, name, description, owner_id FROM projects WHERE id = ?", id).Scan(&p.ID, &p.Name, &p.Description, &p.OwnerID)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, &apperror.NotFoundError{Entity: "project", ID: id}
 	}
