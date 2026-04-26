@@ -18,3 +18,7 @@ type UpdateTaskRequest struct {
 	Status string `json:"status"`
 	UserID *int   `json:"user_id,omitempty"`
 }
+
+func (t Task) GetID() int {
+	return t.ID
+}

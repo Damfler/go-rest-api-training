@@ -1,4 +1,4 @@
-package store
+package repository
 
 import (
 	"context"
@@ -8,23 +8,25 @@ import (
 	"taskmanager/model"
 )
 
-type TaskStore struct {
+type TaskRepository struct {
 	DB *sql.DB
 }
 
-var validStatus = map[string]bool{"todo": true, "in_progress": true, "done": true}
-
-func NewTaskStore(db *sql.DB) *TaskStore {
-	return &TaskStore{DB: db}
+var validStatuses = map[string]bool{
+	"todo": true, "in_progress": true, "done": true,
 }
 
-func (s *TaskStore) Create(ctx context.Context, title string, projectID int, userID *int) (*model.Task, error) {
+func NewTaskRepository(db *sql.DB) *TaskRepository {
+	return &TaskRepository{DB: db}
+}
+
+func (s *TaskRepository) Create(ctx context.Context, title string, projectID int, userID *int) (*model.Task, error) {
 	result, err := s.DB.ExecContext(ctx,
 		"INSERT INTO tasks (title, project_id, user_id) VALUES (?, ?, ?)",
 		title, projectID, userID,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("TaskStore.Create(%s,%d,%d): %w", title, projectID, userID, err)
+		return nil, fmt.Errorf("TaskRepository.Create(%s,%d,%d): %w", title, projectID, userID, err)
 	}
 
 	id, _ := result.LastInsertId()
@@ -37,12 +39,12 @@ func (s *TaskStore) Create(ctx context.Context, title string, projectID int, use
 	}, nil
 }
 
-func (s *TaskStore) getTasksWhere(ctx context.Context, column string, value int, status string) ([]model.Task, error) {
+func (s *TaskRepository) getTasksWhere(ctx context.Context, column string, value int, status string) ([]model.Task, error) {
 	query := "SELECT id, title, status, project_id, user_id FROM tasks WHERE " + column + " = ?"
 	args := []any{value}
 
 	if status != "" {
-		if !validStatus[status] {
+		if !validStatuses[status] {
 			return nil, &apperror.ValidationError{Field: "status", Message: "must be todo, in_progress or done"}
 		}
 		query += " AND status = ?"
@@ -51,7 +53,7 @@ func (s *TaskStore) getTasksWhere(ctx context.Context, column string, value int,
 
 	rows, err := s.DB.QueryContext(ctx, query, args...)
 	if err != nil {
-		return nil, fmt.Errorf("TaskStore.getTasksWhere(%s,%d,%s): %w", column, value, status, err)
+		return nil, fmt.Errorf("TaskRepository.getTasksWhere(%s,%d,%s): %w", column, value, status, err)
 	}
 	defer rows.Close()
 
@@ -60,7 +62,7 @@ func (s *TaskStore) getTasksWhere(ctx context.Context, column string, value int,
 		var t model.Task
 		err := rows.Scan(&t.ID, &t.Title, &t.Status, &t.ProjectID, &t.UserID)
 		if err != nil {
-			return nil, fmt.Errorf("TaskStore.getTasksWhere scan: %w", err)
+			return nil, fmt.Errorf("TaskRepository.getTasksWhere scan: %w", err)
 		}
 		tasks = append(tasks, t)
 	}
@@ -68,22 +70,22 @@ func (s *TaskStore) getTasksWhere(ctx context.Context, column string, value int,
 	return tasks, nil
 }
 
-func (s *TaskStore) GetByProject(ctx context.Context, projectID int, status string) ([]model.Task, error) {
+func (s *TaskRepository) GetByProject(ctx context.Context, projectID int, status string) ([]model.Task, error) {
 	return s.getTasksWhere(ctx, "project_id", projectID, status)
 }
 
-func (s *TaskStore) GetByUser(ctx context.Context, userID int, status string) ([]model.Task, error) {
+func (s *TaskRepository) GetByUser(ctx context.Context, userID int, status string) ([]model.Task, error) {
 	return s.getTasksWhere(ctx, "user_id", userID, status)
 }
 
-func (s *TaskStore) UpdateStatus(ctx context.Context, id int, status string) error {
-	if !validStatus[status] {
+func (s *TaskRepository) UpdateStatus(ctx context.Context, id int, status string) error {
+	if !validStatuses[status] {
 		return &apperror.ValidationError{Field: "status", Message: "must be todo, in_progress or done"}
 	}
 
 	result, err := s.DB.ExecContext(ctx, "UPDATE tasks SET status = ? WHERE id = ?", status, id)
 	if err != nil {
-		return fmt.Errorf("TaskStore.UpdateStatus(%s,%d): %w", status, id, err)
+		return fmt.Errorf("TaskRepository.UpdateStatus(%s,%d): %w", status, id, err)
 	}
 
 	rows, _ := result.RowsAffected()
@@ -94,10 +96,10 @@ func (s *TaskStore) UpdateStatus(ctx context.Context, id int, status string) err
 	return nil
 }
 
-func (s *TaskStore) Assign(ctx context.Context, taskID int, userID *int) error {
+func (s *TaskRepository) Assign(ctx context.Context, taskID int, userID *int) error {
 	result, err := s.DB.ExecContext(ctx, "UPDATE tasks SET user_id = ? WHERE id = ?", userID, taskID)
 	if err != nil {
-		return fmt.Errorf("TaskStore.Assign(%d,%d): %w", taskID, userID, err)
+		return fmt.Errorf("TaskRepository.Assign(%d,%d): %w", taskID, userID, err)
 	}
 
 	rows, _ := result.RowsAffected()
@@ -108,10 +110,10 @@ func (s *TaskStore) Assign(ctx context.Context, taskID int, userID *int) error {
 	return nil
 }
 
-func (s *TaskStore) Delete(ctx context.Context, id int) error {
+func (s *TaskRepository) Delete(ctx context.Context, id int) error {
 	result, err := s.DB.ExecContext(ctx, "DELETE FROM tasks WHERE id = ?", id)
 	if err != nil {
-		return fmt.Errorf("TaskStore.Delete(%d): %w", id, err)
+		return fmt.Errorf("TaskRepository.Delete(%d): %w", id, err)
 	}
 
 	rows, _ := result.RowsAffected()

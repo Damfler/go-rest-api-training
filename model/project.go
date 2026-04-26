@@ -12,3 +12,7 @@ type CreateProjectRequest struct {
 	Description string `json:"description"`
 	OwnerID     int    `json:"owner_id"`
 }
+
+func (p Project) GetID() int {
+	return p.ID
+}

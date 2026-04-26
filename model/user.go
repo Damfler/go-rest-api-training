@@ -10,3 +10,7 @@ type CreateUserRequest struct {
 	Name  string `json:"name"`
 	Email string `json:"email"`
 }
+
+func (u User) GetID() int {
+	return u.ID
+}

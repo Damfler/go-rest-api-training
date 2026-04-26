@@ -3,37 +3,31 @@ package main
 import (
 	"fmt"
 	"net/http"
-	"os"
 	"taskmanager/config"
 	"taskmanager/handler"
 	"taskmanager/middleware"
-	"taskmanager/store"
+	"taskmanager/repository"
+	"taskmanager/service"
 
 	_ "modernc.org/sqlite"
 )
 
 func main() {
-	configPath := "config.yaml"
-	if len(os.Args) > 1 {
-		configPath = os.Args[1]
-	}
-
-	cfg, err := config.Load(configPath)
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-
-	db, err := store.InitDB(cfg.Database.Path)
-	if err != nil {
-		panic(err)
-	}
+	cfg, _ := config.Load("config.yaml")
+	db, _ := repository.InitDB(cfg.Database.Path)
 	defer db.Close()
 
-	userStore := store.NewUserStore(db)
-	userHandler := handler.NewUserHandler(userStore)
-	projectHandler := handler.NewProjectHandler(store.NewProjectStore(db), userStore)
-	taskHandler := handler.NewTaskHandler(store.NewTaskStore(db))
+	userRepo := repository.NewUserRepository(db)
+	projectRepo := repository.NewProjectRepository(db)
+	taskRepo := repository.NewTaskRepository(db)
+
+	userService := service.NewUserService(userRepo)
+	projectService := service.NewProjectService(projectRepo, userRepo)
+	taskService := service.NewTaskService(taskRepo, projectRepo)
+
+	userHandler := handler.NewUserHandler(userService)
+	projectHandler := handler.NewProjectHandler(projectService)
+	taskHandler := handler.NewTaskHandler(taskService)
 
 	mux := http.NewServeMux()
 	log := middleware.Logging(cfg.Debug)

@@ -3,15 +3,14 @@ package handler
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"net/http"
 	"strconv"
 	"taskmanager/apperror"
 	"taskmanager/model"
 )
 
-type TaskStore interface {
-	Create(ctx context.Context, title string, projectID int, userID *int) (*model.Task, error)
+type TaskService interface {
+	Create(ctx context.Context, req model.CreateTaskRequest) (*model.Task, error)
 	GetByProject(ctx context.Context, projectID int, status string) ([]model.Task, error)
 	GetByUser(ctx context.Context, userID int, status string) ([]model.Task, error)
 	UpdateStatus(ctx context.Context, id int, status string) error
@@ -19,11 +18,11 @@ type TaskStore interface {
 }
 
 type TaskHandler struct {
-	Store TaskStore
+	service TaskService
 }
 
-func NewTaskHandler(s TaskStore) *TaskHandler {
-	return &TaskHandler{Store: s}
+func NewTaskHandler(s TaskService) *TaskHandler {
+	return &TaskHandler{service: s}
 }
 
 func (h *TaskHandler) Create(w http.ResponseWriter, r *http.Request) {
@@ -35,12 +34,7 @@ func (h *TaskHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := validateCreateTask(req); err != nil {
-		errorResponse(w, apperror.HTTPStatus(err), err.Error())
-		return
-	}
-
-	task, err := h.Store.Create(ctx, req.Title, req.ProjectID, req.UserID)
+	task, err := h.service.Create(ctx, req)
 	if err != nil {
 		errorResponse(w, apperror.HTTPStatus(err), err.Error())
 		return
@@ -60,7 +54,7 @@ func (h *TaskHandler) GetByProject(w http.ResponseWriter, r *http.Request) {
 
 	status := r.URL.Query().Get("status")
 
-	tasks, err := h.Store.GetByProject(ctx, projectID, status)
+	tasks, err := h.service.GetByProject(ctx, projectID, status)
 	if err != nil {
 		errorResponse(w, apperror.HTTPStatus(err), err.Error())
 		return
@@ -80,7 +74,7 @@ func (h *TaskHandler) GetByUser(w http.ResponseWriter, r *http.Request) {
 
 	status := r.URL.Query().Get("status")
 
-	tasks, err := h.Store.GetByUser(ctx, userID, status)
+	tasks, err := h.service.GetByUser(ctx, userID, status)
 	if err != nil {
 		errorResponse(w, apperror.HTTPStatus(err), err.Error())
 		return
@@ -104,7 +98,7 @@ func (h *TaskHandler) UpdateStatus(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.Store.UpdateStatus(ctx, id, req.Status); err != nil {
+	if err := h.service.UpdateStatus(ctx, id, req.Status); err != nil {
 		errorResponse(w, apperror.HTTPStatus(err), err.Error())
 		return
 	}
@@ -121,27 +115,10 @@ func (h *TaskHandler) Delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.Store.Delete(ctx, id); err != nil {
+	if err := h.service.Delete(ctx, id); err != nil {
 		errorResponse(w, apperror.HTTPStatus(err), err.Error())
 		return
 	}
 
 	jsonResponse(w, http.StatusOK, map[string]string{"status": "deleted"})
-}
-
-func validateCreateTask(req model.CreateTaskRequest) error {
-	var errs []error
-
-	if req.Title == "" {
-		errs = append(errs, &apperror.ValidationError{
-			Field: "title", Message: "required",
-		})
-	}
-	if req.ProjectID == 0 {
-		errs = append(errs, &apperror.ValidationError{
-			Field: "project_id", Message: "required",
-		})
-	}
-
-	return errors.Join(errs...)
 }
