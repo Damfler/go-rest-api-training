@@ -20,9 +20,14 @@ type DatabaseConfig struct {
 	Path string `yaml:"path"`
 }
 
+type CORSConfig struct {
+	AllowedOrigins []string `yaml:"allowed_origins"`
+}
+
 type Config struct {
 	Server   ServerConfig   `yaml:"server"`
 	Database DatabaseConfig `yaml:"database"`
+	CORS     CORSConfig     `yaml:"cors"`
 	Debug    bool           `yaml:"debug"`
 }
 

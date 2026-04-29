@@ -6,19 +6,31 @@ import (
 	"time"
 )
 
+type responseWriter struct {
+	http.ResponseWriter
+	statusCode int
+}
+
+func newResponseWriter(w http.ResponseWriter) *responseWriter {
+	return &responseWriter{w, http.StatusOK}
+}
+
+func (rw *responseWriter) WriteHeader(code int) {
+	rw.statusCode = code
+	rw.ResponseWriter.WriteHeader(code)
+}
+
 func Logging(debug bool) func(http.HandlerFunc) http.HandlerFunc {
 	return func(next http.HandlerFunc) http.HandlerFunc {
 		return func(w http.ResponseWriter, r *http.Request) {
 			start := time.Now()
-			next(w, r)
+
+			rw := newResponseWriter(w)
+			next(rw, r)
 
 			if debug {
-				fmt.Printf("[%s] %s %s query=%s duration=%v\n",
-					r.Method, r.URL.Path, r.RemoteAddr,
-					r.URL.RawQuery, time.Since(start))
-			} else {
-				fmt.Printf("[%s] %s %s %v\n",
-					r.Method, r.URL.Path, r.URL.RawQuery, time.Since(start))
+				reqID, _ := r.Context().Value("requestID").(string)
+				fmt.Printf("[%s] %s %s %d %v\n", reqID, r.Method, r.URL.Path, rw.statusCode, time.Since(start))
 			}
 		}
 	}
