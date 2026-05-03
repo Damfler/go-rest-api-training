@@ -1,7 +1,7 @@
 package middleware
 
 import (
-	"fmt"
+	"log/slog"
 	"net/http"
 	"time"
 )
@@ -20,7 +20,7 @@ func (rw *responseWriter) WriteHeader(code int) {
 	rw.ResponseWriter.WriteHeader(code)
 }
 
-func Logging(debug bool) func(http.HandlerFunc) http.HandlerFunc {
+func Logging(logger *slog.Logger) func(http.HandlerFunc) http.HandlerFunc {
 	return func(next http.HandlerFunc) http.HandlerFunc {
 		return func(w http.ResponseWriter, r *http.Request) {
 			start := time.Now()
@@ -28,10 +28,16 @@ func Logging(debug bool) func(http.HandlerFunc) http.HandlerFunc {
 			rw := newResponseWriter(w)
 			next(rw, r)
 
-			if debug {
-				reqID, _ := r.Context().Value("requestID").(string)
-				fmt.Printf("[%s] %s %s %d %v\n", reqID, r.Method, r.URL.Path, rw.statusCode, time.Since(start))
-			}
+			duration := time.Since(start)
+			reqID, _ := r.Context().Value("requestID").(string)
+
+			logger.Info("request",
+				"requestID", reqID,
+				"method", r.Method,
+				"path", r.URL.Path,
+				"status", rw.statusCode,
+				"duration", duration.String(),
+			)
 		}
 	}
 }
