@@ -30,4 +30,8 @@ func (c *Config) loadEnv() {
 	envInt("SERVER_PORT", &c.Server.Port)
 	envString("DB_PATH", &c.Database.Path)
 	envBool("DEBUG", &c.Debug)
+	envInt("READ_TIMEOUT", &c.Server.ReadTimeout)
+	envInt("WRITE_TIMEOUT", &c.Server.WriteTimeout)
+	envInt("IDLE_TIMEOUT", &c.Server.IdleTimeout)
+	envInt("SHUTDOWN_TIMEOUT", &c.Server.ShutdownTimeout)
 }

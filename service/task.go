@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"taskmanager/apperror"
 	"taskmanager/model"
 )
@@ -19,10 +20,15 @@ type TaskRepository interface {
 type TaskService struct {
 	repo        TaskRepository
 	projectRepo ProjectRepository
+	logger      *slog.Logger
 }
 
-func NewTaskService(repo TaskRepository, projectRepo ProjectRepository) *TaskService {
-	return &TaskService{repo: repo, projectRepo: projectRepo}
+func NewTaskService(repo TaskRepository, projectRepo ProjectRepository, logger *slog.Logger) *TaskService {
+	return &TaskService{
+		repo:        repo,
+		projectRepo: projectRepo,
+		logger:      logger.With("service", "task"),
+	}
 }
 
 var validStatuses = map[string]bool{
@@ -30,20 +36,32 @@ var validStatuses = map[string]bool{
 }
 
 func (s *TaskService) Create(ctx context.Context, req model.CreateTaskRequest) (*model.Task, error) {
+	s.logger.Info("creating task", "projectId", req.ProjectID)
+
 	if err := s.validateCreate(req); err != nil {
+		s.logger.Warn("validation failed", "err", err)
 		return nil, err
 	}
 
-	// Бизнес-правило: проект должен существовать
 	_, err := s.projectRepo.GetByID(ctx, req.ProjectID)
 	if err != nil {
+		s.logger.Error("failed to create task", "err", err)
 		return nil, fmt.Errorf("project not found: %w", err)
 	}
 
-	return s.repo.Create(ctx, req.Title, req.ProjectID, req.UserID)
+	task, err := s.repo.Create(ctx, req.Title, req.ProjectID, req.UserID)
+	if err != nil {
+		s.logger.Error("failed to create task", "err", err)
+		return nil, err
+	}
+
+	s.logger.Info("task created", "taskID", task.ID)
+	return task, nil
 }
 
 func (s *TaskService) UpdateStatus(ctx context.Context, id int, status string) error {
+	s.logger.Info("updating status", "id", id)
+
 	if !validStatuses[status] {
 		return &apperror.ValidationError{Field: "status", Message: "must be todo, in_progress or done"}
 	}
@@ -52,6 +70,8 @@ func (s *TaskService) UpdateStatus(ctx context.Context, id int, status string) e
 }
 
 func (s *TaskService) GetByProject(ctx context.Context, projectID int, status string) ([]model.Task, error) {
+	s.logger.Info("getting tasks", "projectId", projectID, "status", status)
+
 	if status != "" && !validStatuses[status] {
 		return nil, &apperror.ValidationError{Field: "status", Message: "must be todo, in_progress or done"}
 	}
@@ -60,10 +80,12 @@ func (s *TaskService) GetByProject(ctx context.Context, projectID int, status st
 }
 
 func (s *TaskService) GetByUser(ctx context.Context, userID int, status string) ([]model.Task, error) {
+	s.logger.Info("getting tasks", "userId", userID, "status", status)
 	return s.repo.GetByUser(ctx, userID, status)
 }
 
 func (s *TaskService) Delete(ctx context.Context, id int) error {
+	s.logger.Info("deleting task", "id", id)
 	return s.repo.Delete(ctx, id)
 }
 

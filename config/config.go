@@ -12,8 +12,12 @@ import (
 )
 
 type ServerConfig struct {
-	Host string `yaml:"host"`
-	Port int    `yaml:"port"`
+	Host            string `yaml:"host"`
+	Port            int    `yaml:"port"`
+	ReadTimeout     int    `yaml:"read_timeout"`
+	WriteTimeout    int    `yaml:"write_timeout"`
+	IdleTimeout     int    `yaml:"idle_timeout"`
+	ShutdownTimeout int    `yaml:"shutdown_timeout"`
 }
 
 type DatabaseConfig struct {
@@ -34,8 +38,12 @@ type Config struct {
 func Load(path string) (*Config, error) {
 	config := &Config{
 		Server: ServerConfig{
-			Host: "localhost",
-			Port: 999,
+			Host:            "localhost",
+			Port:            8080,
+			ReadTimeout:     15,
+			WriteTimeout:    15,
+			IdleTimeout:     60,
+			ShutdownTimeout: 10,
 		},
 		Database: DatabaseConfig{
 			Path: "./app.db",

@@ -3,6 +3,8 @@ package service
 import (
 	"context"
 	"errors"
+	"log/slog"
+	"os"
 	"taskmanager/apperror"
 	"taskmanager/model"
 	"testing"
@@ -11,6 +13,10 @@ import (
 type mockUserRepo struct {
 	users []model.User
 	err   error
+}
+
+func testLogger() *slog.Logger {
+	return slog.New(slog.NewTextHandler(os.Stdout, nil))
 }
 
 func (m *mockUserRepo) Create(ctx context.Context, name, email string) (*model.User, error) {
@@ -41,7 +47,7 @@ func (m *mockUserRepo) GetAll(ctx context.Context) ([]model.User, error) {
 
 func TestUserServiceCreate(t *testing.T) {
 	repo := &mockUserRepo{}
-	svc := NewUserService(repo)
+	svc := NewUserService(repo, testLogger())
 
 	user, err := svc.Create(context.Background(), model.CreateUserRequest{
 		Name:  "Alex",
@@ -58,7 +64,7 @@ func TestUserServiceCreate(t *testing.T) {
 
 func TestUserServiceValidation(t *testing.T) {
 	repo := &mockUserRepo{}
-	svc := NewUserService(repo)
+	svc := NewUserService(repo, testLogger())
 
 	_, err := svc.Create(context.Background(), model.CreateUserRequest{
 		Name:  "",
@@ -77,7 +83,7 @@ func TestUserServiceValidation(t *testing.T) {
 
 func TestUserServiceDuplicateEmail(t *testing.T) {
 	repo := &mockUserRepo{}
-	svc := NewUserService(repo)
+	svc := NewUserService(repo, testLogger())
 
 	_, err := svc.Create(context.Background(), model.CreateUserRequest{
 		Name:  "Alex",

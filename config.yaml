@@ -1,6 +1,10 @@
 server:
   host: localhost
   port: 8080
+  read_timeout: 15
+  write_timeout: 15
+  idle_timeout: 60
+  shutdown_timeout: 10
 
 database:
   path: app.db
